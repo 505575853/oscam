@@ -362,7 +362,7 @@ typedef unsigned char uchar;
 /* ===========================
  *         constants
  * =========================== */
-#define CS_VERSION    "1.20-unstable_svn"
+#define CS_VERSION    "1.20_svn"
 #ifndef CS_SVN_VERSION
 #   define CS_SVN_VERSION "test"
 #endif
@@ -399,7 +399,6 @@ typedef unsigned char uchar;
 #else
 #define MAX_ECM_SIZE 1024
 #define MAX_EMM_SIZE 1024
-#define MAX_SCT_SIZE 1024	// smaller or equal to the minial one of MAX_ECM_SIZE and MAX_EMM_SIZE 
 #endif
 
 #define CS_EMMCACHESIZE  1024 //nr of EMMs that each reader will cache
@@ -434,7 +433,7 @@ typedef unsigned char uchar;
 #define R_SMART     0x7 // Smartreader+
 #define R_PCSC      0x8 // PCSC
 #define R_DRECAS    0x9 // Reader DRECAS
-#define R_EMU       0x17  // Reader emu
+#define R_EMU       0x17 // Reader EMU
 /////////////////// proxy readers after R_CS378X
 #define R_CAMD35    0x20  // Reader cascading camd 3.5x
 #define R_CAMD33    0x21  // Reader cascading camd 3.3x
@@ -1498,6 +1497,31 @@ struct s_reader                                     //contains device info, read
 	FTAB            fallback_percaid;
 	FTAB            localcards;
 	FTAB            disablecrccws_only_for;         // ignore checksum for selected caid provid
+#ifdef READER_NAGRA_MERLIN
+	unsigned char   kdt05_00[216];
+	unsigned char   kdt05_10[208];
+	unsigned char   cardid[8];
+	unsigned char   edata[255];
+	unsigned char   dt5num;
+	unsigned char   out[255];
+	unsigned char   ideakey1[16];
+	unsigned char   block3[8];
+	unsigned char   v[8];
+	unsigned char   iout[8];
+	unsigned char   dtdata[0x10];
+	uint32_t        dword_83DBC;
+	unsigned char   data2[4];
+	unsigned char   cas7expo[0x11];
+	unsigned char   data[0x80];
+	unsigned char   step1[0x60];
+	unsigned char   step2[0x68];
+	unsigned char   step3[0x6c];
+	unsigned char   encrypted[0x68];
+	uchar           result[104];
+	uchar           stillencrypted[0x50];
+	uchar           resultrsa[0x50];
+	uint32_t        cas7_seq;
+#endif
 #ifdef CS_CACHEEX
 	CECSP           cacheex; //CacheEx Settings
 #endif
@@ -1535,7 +1559,7 @@ struct s_reader                                     //contains device info, read
 	uint8_t         jet_fix_ecm;                   // for dvn jet ,ecm head is 0x50, this option indicate if fix it to 0x80 or 0x81.
 	uint8_t         jet_resync_vendorkey;
 #endif
-	uint32_t        cas_version;
+	uint32_t        cas_version;			// cas version, used by tongfang,jet and streamguard. manual set for streamguard.
 	int8_t          nagra_read;                     // read nagra ncmed records: 0 Disabled (default), 1 read all records, 2 read valid records only
 	int8_t          detect_seca_nagra_tunneled_card;
 	int8_t          force_irdeto;
@@ -1549,6 +1573,10 @@ struct s_reader                                     //contains device info, read
 	uchar           card_atr[64];                   // ATR readed from card
 	int8_t          card_atr_length;                // length of ATR
 	int8_t          seca_nagra_card;                // seca nagra card 
+#ifdef READER_NAGRA_MERLIN
+	uint8_t         cas7_aes_key[32];
+	uint8_t         cas7_aes_iv[16];
+#endif
 	int32_t         atrlen;
 	SIDTABS         sidtabs;
 	SIDTABS         lb_sidtabs;
@@ -1556,8 +1584,8 @@ struct s_reader                                     //contains device info, read
 	int32_t         nprov;
 	uchar           prid[CS_MAXPROV][8];
 	uchar           sa[CS_MAXPROV][4];              // viaccess & seca
-	uint8_t			read_old_classes;               // viaccess
-	uint8_t			maturity;						// viaccess & seca maturity level
+	uint8_t         read_old_classes;               // viaccess
+	uint8_t         maturity;                       // viaccess & seca maturity level
 	uint16_t        caid;
 	uint16_t        b_nano;
 	uint16_t        s_nano;
@@ -1753,11 +1781,10 @@ struct s_reader                                     //contains device info, read
 	uint8_t         ghttp_use_ssl;
 #endif
 #ifdef WITH_EMU
-	FTAB            emu_auproviders;
-	char            *extee36;
-	char            *extee56;
-	opkeys_t        *ee36;
-	opkeys_t        *ee56;
+	FTAB            emu_auproviders;                // AU providers for Emu reader
+	int8_t          emu_datecodedenabled;           // date-coded keys for BISS
+	char            *extee36;                       // path to "ee36.bin" - Set by the user via the webif
+	char            *extee56;                       // path to "ee56.bin" - Set by the user via the webif
 	uint8_t         dre36_force_group;
 	uint8_t         dre56_force_group;
 #endif
@@ -2128,11 +2155,12 @@ struct s_config
 #ifdef MODULE_GBOX
     #define         GBOX_MY_VERS_DEF       0x2A
     #define         GBOX_MY_CPU_API_DEF    0x40
-    #define        	GBOX_MAX_PROXY_CARDS   32
-    #define        	GBOX_MAX_IGNORED_PEERS 16
-    #define        	GBOX_MAX_BLOCKED_ECM   16
-    #define        	GBOX_MAX_DEST_PEERS    16
-    #define        	GBOX_MAX_MSG_TXT       127
+    #define         GBOX_MAX_PROXY_CARDS   32
+    #define         GBOX_MAX_IGNORED_PEERS 16
+    #define         GBOX_MAX_BLOCKED_ECM   16
+    #define         GBOX_MAX_REMM_PEERS    8
+    #define         GBOX_MAX_DEST_PEERS    16
+    #define         GBOX_MAX_MSG_TXT       127
 
 	uint16_t        gbox_port[CS_MAXPORTS];
 	char            *gbox_hostname;
@@ -2149,6 +2177,8 @@ struct s_config
 	uint8_t         ccc_reshare;
 	uint16_t        gbox_ignored_peer[GBOX_MAX_IGNORED_PEERS];
 	uint8_t         gbox_ignored_peer_num;
+	uint16_t        accept_remm_peer[GBOX_MAX_REMM_PEERS];
+	uint8_t         accept_remm_peer_num;
 	uint16_t        gbox_block_ecm[GBOX_MAX_BLOCKED_ECM];
 	uint8_t         gbox_block_ecm_num;
 	uint8_t			gbox_save_gsms;
@@ -2211,6 +2241,7 @@ struct s_config
 	int8_t      dvbapi_read_sdt;
 	int8_t      dvbapi_write_sdt_prov;
 	int8_t      dvbapi_extended_cw_api;
+	int8_t      dvbapi_extended_cw_pids;            // pid limiter
 #endif
 
 #ifdef CS_ANTICASC

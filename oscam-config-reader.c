@@ -909,6 +909,9 @@ static const struct config_list reader_opts[] =
 	DEF_OPT_FUNC("caid"                 , OFS(ctab),                    reader_caid_fn),
 	DEF_OPT_FUNC("atr"                  , 0,                            atr_fn),
 	DEF_OPT_FUNC("boxid"                , 0,                            boxid_fn),
+#ifdef READER_STREAMGUARD
+	DEF_OPT_UINT32("cas_version"        , OFS(cas_version),             0),
+#endif
 #ifdef  READER_TONGFANG
 	DEF_OPT_FUNC("tongfang3_calibsn"    , 0,                            tongfang3_calibsn_fn),
 #endif
@@ -988,6 +991,7 @@ static const struct config_list reader_opts[] =
 #endif
 #ifdef WITH_EMU
 	DEF_OPT_FUNC_X("emu_auproviders"    , OFS(emu_auproviders),         ftab_fn, FTAB_READER | FTAB_EMUAU),
+	DEF_OPT_INT8("emu_datecodedenabled" , OFS(emu_datecodedenabled),    0),
 	DEF_OPT_STR("extee36"               , OFS(extee36),                 NULL),
 	DEF_OPT_STR("extee56"               , OFS(extee56),                 NULL),
 	DEF_OPT_HEX("dre36_force_group"     , OFS(dre36_force_group),       1),
